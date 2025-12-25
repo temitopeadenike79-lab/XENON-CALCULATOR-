@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>XENON Pro - History Edition</title>
+    <style>
+        /* THEMES */
+        :root {
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-color: #ffffff;
+            --display-bg: #020617;
+            --btn-bg: #334155;
+            --accent: #38bdf8;
+            --history-panel: #0f172a;
+        }
+
+        .white-mode {
+            --bg-color: #f1f5f9; --card-bg: #ffffff; --text-color: #1e293b;
+            --display-bg: #cbd5e1; --btn-bg: #e2e8f0; --accent: #0284c7;
+            --history-panel: #f8fafc;
+        }
+
+        .blue-mode {
+            --bg-color: #1e40af; --card-bg: #1e3a8a; --text-color: #ffffff;
+            --display-bg: #172554; --btn-bg: #3b82f6; --accent: #93c5fd;
+            --history-panel: #1e3a8a;
+        }
+
+        body {
+            background: var(--bg-color);
+            display: flex; justify-content: center; align-items: center;
+            min-height: 100vh; margin: 0; font-family: 'Consolas', monospace;
+            transition: all 0.4s ease;
+        }
+
+        .calculator {
+            background: var(--card-bg); padding: 25px; border-radius: 24px;
+            box-shadow: 0 25px 50px rgba(0,0,0,0.5); width: 440px;
+        }
+
+        .top-info {
+            display: flex; justify-content: space-between;
+            font-size: 0.75rem; color: var(--accent); margin-bottom: 5px;
+        }
+
+        #display {
+            width: 100%; height: 75px; font-size: 1.5rem; text-align: right;
+            margin-bottom: 10px; padding: 15px; box-sizing: border-box;
+            background: var(--display-bg); color: var(--accent);
+            border: 3px solid var(--btn-bg); border-radius: 12px; transition: 0.5s;
+        }
+
+        #display.off { background: #000; opacity: 0.2; color: transparent; }
+        
+        /* History Section Styles */
+        .history-container {
+            background: var(--history-panel);
+            border-radius: 12px;
+            margin-bottom: 10px;
+            padding: 10px;
+            max-height: 120px;
+            overflow-y: auto;
+            border: 1px solid var(--btn-bg);
+        }
+
+        .history-header {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--accent);
+            margin-bottom: 5px;
+            border-bottom: 1px solid var(--btn-bg);
+            padding-bottom: 3px;
+        }
+
+        .history-item {
+            color: var(--text-color);
+            font-size: 0.85rem;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            cursor: pointer;
+        }
+
+        .history-item:hover { color: var(--accent); }
+
+        .buttons { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+        button { height: 45px; border-radius: 8px; border: none; background: var(--btn-bg); color: var(--text-color); cursor: pointer; font-weight: bold; }
+        .power { background: #be123c !important; color: white; }
+        .equals { background: #10b981 !important; grid-column: span 2; }
+        button:disabled { opacity: 0.1; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div class="calculator">
+    <div class="top-info">
+        <span id="clock">00:00:00</span>
+        <span id="batt-display">🔋 100%</span>
+    </div>
+
+    <div class="history-container">
+        <div class="history-header">
+            <span>HISTORY</span>
+            <span onclick="clearHistory()" style="cursor:pointer; text-decoration: underline;">CLEAR</span>
+        </div>
+        <div id="history-list"></div>
+    </div>
+
+    <input type="text" id="display" value="" readonly>
+    
+    <div class="buttons">
+        <button class="power" onclick="togglePower()">ON/OFF</button>
+        <button onclick="cycleTheme()">THEME</button>
+        <button onclick="convertToBinary()">BIN</button>
+        <button onclick="convertFromBinary()">DEC</button>
+        <button style="background:#ef4444" onclick="clearDisplay()">AC</button>
+
+        <button onclick="sci('sin')">sin</button>
+        <button onclick="sci('cos')">cos</button>
+        <button onclick="sci('tan')">tan</button>
+        <button onclick="percentage()">%</button>
+        <button onclick="deleteLast()">DEL</button>
+
+        <button onclick="sci('sqrt')">√</button>
+        <button onclick="sci('pow2')">x²</button>
+        <button onclick="sci('pi')">π</button>
+        <button onclick="appendToDisplay('/')">÷</button>
+        <button onclick="appendToDisplay('*')">×</button>
+
+        <button onclick="appendToDisplay('7')">7</button>
+        <button onclick="appendToDisplay('8')">8</button>
+        <button onclick="appendToDisplay('9')">9</button>
+        <button onclick="appendToDisplay('-')">-</button>
+        <button onclick="appendToDisplay('+')">+</button>
+
+        <button onclick="appendToDisplay('4')">4</button>
+        <button onclick="appendToDisplay('5')">5</button>
+        <button onclick="appendToDisplay('6')">6</button>
+        <button onclick="appendToDisplay('1')">1</button>
+        <button onclick="appendToDisplay('2')">2</button>
+
+        <button onclick="appendToDisplay('3')">3</button>
+        <button onclick="appendToDisplay('0')">0</button>
+        <button onclick="appendToDisplay('.')">.</button>
+        <button class="equals" onclick="calculate()">=</button>
+    </div>
+</div>
+
+<script>
+    const display = document.getElementById('display');
+    const clockDiv = document.getElementById('clock');
+    const battDiv = document.getElementById('batt-display');
+    const historyList = document.getElementById('history-list');
+    
+    let isPowerOn = true;
+    let batteryLevel = 100;
+    let currentTheme = 0;
+
+    // --- Battery Logic ---
+    function drainBattery() {
+        if (isPowerOn && batteryLevel > 0) {
+            batteryLevel -= 1;
+            battDiv.innerText = `🔋 ${batteryLevel}%`;
+            if (batteryLevel <= 1) forcePowerOff();
+        }
+    }
+    setInterval(drainBattery, 10000); 
+
+    function forcePowerOff() {
+        isPowerOn = false;
+        disableButtons(true);
+        display.value = "LOW BATTERY! PLS WAIT 10 MINS";
+        setTimeout(() => {
+            batteryLevel = 100;
+            battDiv.innerText = `🔋 ${batteryLevel}%`;
+            isPowerOn = true;
+            display.value = "RECHARGED";
+            disableButtons(false);
+            setTimeout(() => display.value = "", 2000);
+        }, 10000); 
+    }
+
+    // --- Clock & Power ---
+    function updateClock() {
+        if (isPowerOn) clockDiv.innerText = new Date().toLocaleTimeString();
+        else clockDiv.innerText = "";
+    }
+    setInterval(updateClock, 1000);
+
+    function togglePower() {
+        if (batteryLevel <= 1) return;
+        isPowerOn = !isPowerOn;
+        if (!isPowerOn) {
+            display.classList.add('off');
+            display.value = "";
+            disableButtons(true);
+        } else {
+            display.classList.remove('off');
+            disableButtons(false);
+        }
+    }
+
+    function disableButtons(state) {
+        document.querySelectorAll('button:not(.power)').forEach(b => b.disabled = state);
+    }
+
+    // --- HISTORY LOGIC ---
+    function addHistory(expression, result) {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerText = `${expression} = ${result}`;
+        // Clicking an item puts the result back in the display
+        item.onclick = () => { if(isPowerOn) display.value = result; };
+        historyList.prepend(item);
+    }
+
+    function clearHistory() {
+        historyList.innerHTML = '';
+    }
+
+    // --- Math & Themes ---
+    function cycleTheme() {
+        currentTheme = (currentTheme + 1) % 3;
+        document.body.classList.remove('white-mode', 'blue-mode');
+        if (currentTheme === 1) document.body.classList.add('white-mode');
+        else if (currentTheme === 2) document.body.classList.add('blue-mode');
+    }
+
+    function appendToDisplay(val) { if(isPowerOn) display.value += val; }
+    function clearDisplay() { display.value = ""; }
+    function deleteLast() { display.value = display.value.slice(0, -1); }
+
+    function calculate() {
+        if (!display.value) return;
+        let expression = display.value;
+        try { 
+            let result = eval(expression);
+            if (result === undefined) return;
+            addHistory(expression, result); // Add to History
+            display.value = result; 
+        } 
+        catch { 
+            display.value = "Error"; 
+            setTimeout(clearDisplay, 1000); 
+        }
+    }
+
+    function sci(type) {
+        let v = parseFloat(display.value) || 0;
+        let res;
+        if (type === 'sin') res = Math.sin(v * Math.PI/180).toFixed(4);
+        if (type === 'cos') res = Math.cos(v * Math.PI/180).toFixed(4);
+        if (type === 'tan') res = Math.tan(v * Math.PI/180).toFixed(4);
+        if (type === 'sqrt') res = Math.sqrt(v).toFixed(4);
+        if (type === 'pow2') res = Math.pow(v, 2);
+        if (type === 'pi') { display.value += "3.1415"; return; }
+        
+        addHistory(`${type}(${v})`, res);
+        display.value = res;
+    }
+
+    function percentage() { 
+        let v = eval(display.value);
+        let res = v / 100;
+        addHistory(`${v}%`, res);
+        display.value = res; 
+    }
+    
+    function convertToBinary() { 
+        let v = parseInt(eval(display.value));
+        let res = v.toString(2);
+        addHistory(`${v} to BIN`, res);
+        display.value = res; 
+    }
+    
+    function convertFromBinary() { 
+        let v = display.value;
+        let res = parseInt(v, 2);
+        addHistory(`BIN ${v} to DEC`, res);
+        display.value = res; 
+    }
+</script>
+</body>
+</html>
